@@ -8,6 +8,9 @@
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记循环泵</button>
         <button class="btn" type="button" @click="exportRows">导出循环泵运维清单</button>
+        <button class="btn ghost" type="button" :disabled="resetting" @click="resetData">
+          {{ resetting ? '复位中…' : '复位示例数据' }}
+        </button>
       </div>
     </header>
 
@@ -17,6 +20,18 @@
         <strong class="stat-value">{{ item.value }}</strong>
       </article>
     </div>
+
+    <section class="reminder-panel" data-hook="maintenance-reminders">
+      <h3 class="reminder-title">保养提醒（待保养清单）</h3>
+      <p v-if="!reminders.length" class="reminder-empty">暂无待保养循环泵，已停用设备不会保留保养提醒</p>
+      <ul v-else class="reminder-list">
+        <li v-for="item in reminders" :key="item.pumpId" class="reminder-item">
+          <span class="reminder-code">{{ item.pumpCode }}</span>
+          <span class="reminder-station">{{ item.station }}</span>
+          <span class="reminder-status">{{ item.status }}</span>
+        </li>
+      </ul>
+    </section>
 
     <p class="status-legend">
       <span v-for="item in statusSummary" :key="item.status" class="legend-item">
@@ -64,8 +79,9 @@
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条循环泵运维记录</span>
-      <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span>共 {{ total }} 条循环泵运维记录，其中待保养 {{ reminders.length }} 条</span>
+      <span v-if="noticeMessage" class="notice-text">{{ noticeMessage }}</span>
+      <span v-else-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
 </template>
@@ -76,22 +92,36 @@ import { computed, onMounted, ref } from 'vue'
 import {
   downloadEntries,
   listEntries,
+  listMaintenanceReminders,
   moduleMeta,
+  resetModule,
   runAction as applyAction,
 } from '@/api/local-service'
-import type { EntryRow } from '@/data/types'
+import type { EntryRow, MaintenanceReminder } from '@/data/types'
 
 const meta = moduleMeta('circpump')
 const columns = ["泵编号", "所属换热站", "泵型号", "运行电流", "扬程", "保养周期", "上次保养日", "运行状态"]
 const actions = ["登记运行", "完成保养", "停用设备"]
 const statuses = ["待保养", "运行中", "已保养", "已停用"]
-const stats = [{"label": "运行中循环泵", "value": 0}, {"label": "待保养循环泵", "value": 0}, {"label": "本月保养数", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
+const reminders = ref<MaintenanceReminder[]>([])
 const errorMessage = ref('')
+const noticeMessage = ref('')
+const resetting = ref(false)
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+// 统计卡与下方提醒区共用同一处保养提醒口径，不各自计数。
+const stats = computed(() => {
+  const running = rows.value.filter((row) => String(row.status) === '运行中').length
+  const maintained = rows.value.filter((row) => String(row.status) === '已保养').length
+  return [
+    { label: "运行中循环泵", value: running },
+    { label: "待保养循环泵", value: reminders.value.length },
+    { label: "本月保养数", value: maintained },
+  ]
+})
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -122,12 +152,33 @@ function runAction(action: string, row: EntryRow) {
   reload()
 }
 
+// 复位示例数据：按钮在途禁用，重复点击/重复提交只生效一次，重跑后仍只剩一份示例记录。
+function resetData() {
+  if (resetting.value) {
+    return
+  }
+  resetting.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    resetModule(meta.key)
+    filters.value = {}
+    reload()
+    noticeMessage.value = '示例数据已复位，已停用设备的保养提醒已一并清空'
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '示例数据复位失败'
+  } finally {
+    resetting.value = false
+  }
+}
+
 function reload() {
   errorMessage.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    reminders.value = listMaintenanceReminders()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '循环泵运维列表读取失败'
   }

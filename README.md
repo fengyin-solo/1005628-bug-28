@@ -25,9 +25,14 @@
 
 ```bash
 cd frontend
-npm install
+npm install   # 一条命令装齐本地开发环境：preinstall 先做 Node/依赖版本自检，再装依赖
 npm run dev
 ```
+
+`npm install` 会自动先跑 `node scripts/check-env.mjs`：Node 需要 18 及以上，
+`package.json` 里任一依赖版本不是合法的 semver 范围、发布标签或可安装来源（git/file/tarball 等），
+安装直接终止并指明是哪一项，不会装到一半才报错。也可以单独执行 `npm run check-env`，
+或在仓库根目录执行 `make install`（`make check-env` 只做自检）。
 
 前端默认监听 `http://127.0.0.1:5173/`，dev server 不会自动打开浏览器，需要自己访问。
 
@@ -68,4 +73,11 @@ npm run build
 - 字段、状态、动作与流转目标集中在 `frontend/src/data/modules.ts`；示例数据在
   `frontend/src/data/seed.ts`。
 - 状态流转只允许在 `local-service.ts` 里改，页面组件不做业务判断。
-- 想回到初始数据：清掉浏览器里 `district-heating:entries` 这一项，或调用 `resetModule(模块)`。
+- 循环泵保养提醒沿用本地口径：只有状态为「待保养」的循环泵挂提醒，停用设备（「已停用」）或
+  已完成保养的泵不挂提醒。列表统计与页面提醒区都读 `listMaintenanceReminders()` 这一处，两边始终一致；
+  提醒持久化在浏览器 `district-heating:maintenance-reminders` 一项，每次读取都会按当前循环泵记录核对，
+  漏挂会补、残留会摘掉。
+- 想回到初始数据：在循环泵运维页点「复位示例数据」（重复点击只生效一次），或调用
+  `resetModule(模块)` / `resetAllModules()`；也可以清掉浏览器里 `district-heating:entries` 与
+  `district-heating:maintenance-reminders` 两项。复位会按示例数据的原编号顺序回填、不产生重复记录，
+  并一并清掉停用设备残留的保养提醒。重新 `npm install` 后首次打开会幂等播种，反复初始化也不会多出记录。

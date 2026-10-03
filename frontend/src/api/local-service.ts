@@ -1,9 +1,29 @@
 import { MODULE_BY_KEY } from '@/data/modules'
-import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
-import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
+import {
+  allRows,
+  initLocalData,
+  listReminders,
+  listRows,
+  resetAllRows,
+  resetRows,
+  saveReminders,
+  saveRows,
+} from '@/data/local-store'
+import type {
+  ActionResult,
+  EntryRow,
+  MaintenanceReminder,
+  ModuleMeta,
+  OverviewResult,
+  PageResult,
+} from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
 const NEGATIVE_ACTIONS = ['撤销', '作废', '拒绝', '驳回', '停用', '忽略', '下线', '回滚']
+
+const CIRCPUMP_KEY = 'circpump'
+// 保养提醒的本地口径：循环泵记录处于「待保养」才挂提醒，其余状态（含已停用）一律没有。
+const MAINTENANCE_PENDING_STATUS = '待保养'
 
 export function moduleMeta(key: string): ModuleMeta {
   const meta = MODULE_BY_KEY.get(key)
@@ -53,12 +73,65 @@ export function runAction(key: string, id: number, action: string): ActionResult
   const next = [...rows]
   next[index] = updated
   saveRows(key, next)
+  // 停用设备、完成保养都会改变待保养清单，动作落库后按统一口径重建提醒。
+  if (key === CIRCPUMP_KEY) {
+    syncMaintenanceReminders()
+  }
   return { ok: true, message: `${meta.entity}已${action}，当前状态「${target}」` }
+}
+
+// 按循环泵实时记录重建保养提醒：以记录为准整表覆盖，停用/已保养的设备不会留下残留提醒。
+export function syncMaintenanceReminders(): MaintenanceReminder[] {
+  const reminders: MaintenanceReminder[] = listRows(CIRCPUMP_KEY)
+    .filter((row) => String(row.status) === MAINTENANCE_PENDING_STATUS)
+    .map((row) => ({
+      pumpId: Number(row.id),
+      pumpCode: String(row['泵编号'] ?? ''),
+      station: String(row['所属换热站'] ?? ''),
+      status: String(row.status),
+    }))
+  saveReminders(reminders)
+  return reminders
+}
+
+// 保养提醒的唯一读取口径：列表统计与页面提醒区都从这里取，两边永远对得上。
+export function listMaintenanceReminders(): MaintenanceReminder[] {
+  // 以循环泵实时记录为准，先核对本地持久化的提醒是否漏挂/残留，不一致就重建。
+  const expected = listRows(CIRCPUMP_KEY)
+    .filter((row) => String(row.status) === MAINTENANCE_PENDING_STATUS)
+    .map((row) => Number(row.id))
+  const stored = listReminders()
+  const sameIds =
+    stored.length === expected.length &&
+    stored.every((item) => expected.includes(item.pumpId))
+  if (!sameIds) {
+    return syncMaintenanceReminders()
+  }
+  // 仍按当前记录顺序返回，保证提醒顺序与待保养清单一致。
+  return expected
+    .map((id) => stored.find((item) => item.pumpId === id))
+    .filter((item): item is MaintenanceReminder => Boolean(item))
 }
 
 export function resetModule(key: string): PageResult {
   resetRows(key)
+  if (key === CIRCPUMP_KEY) {
+    syncMaintenanceReminders()
+  }
   return listEntries(key)
+}
+
+// 全部模块复位：记录回到示例数据、保养提醒清空后再按示例口径重建；重复提交结果一致。
+export function resetAllModules(): PageResult {
+  resetAllRows()
+  syncMaintenanceReminders()
+  return listEntries(CIRCPUMP_KEY)
+}
+
+// 本地环境首次/重复初始化：示例数据幂等播种，再让保养提醒与循环泵记录对齐。
+export function initLocalEnvironment(): void {
+  initLocalData()
+  syncMaintenanceReminders()
 }
 
 export function exportEntries(key: string): { filename: string; content: string } {

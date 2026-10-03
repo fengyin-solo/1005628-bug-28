@@ -36,3 +36,11 @@ export type OverviewResult = {
   cards: { label: string; value: number }[]
   modules: { name: string; created: number; pending: number; abnormal: number }[]
 }
+
+// 循环泵保养提醒（本地口径）：循环泵记录处于「待保养」状态就挂一条，停用/保养后立即摘掉。
+export type MaintenanceReminder = {
+  pumpId: number
+  pumpCode: string
+  station: string
+  status: string
+}
