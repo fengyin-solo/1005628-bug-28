@@ -32,6 +32,22 @@ export type ActionResult = {
   message: string
 }
 
+export type CreateResult = {
+  ok: boolean
+  message: string
+  item?: EntryRow
+}
+
+// 保养提醒与台账记录共用同一套行结构，停用的泵不会进入待保养提醒。
+export type MaintenanceReminder = {
+  id: number
+  泵编号: string
+  所属换热站: string
+  保养周期: string
+  上次保养日: string
+  status: string
+}
+
 export type OverviewResult = {
   cards: { label: string; value: number }[]
   modules: { name: string; created: number; pending: number; abnormal: number }[]

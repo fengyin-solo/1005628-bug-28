@@ -1,0 +1,16 @@
+{
+  "name": "district-heating-platform",
+  "private": true,
+  "version": "1.0.0",
+  "description": "城市集中供热管网与换热站运行管理平台（纯前端，唯一运行单元在 frontend/）",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:web": "cd frontend && npm install",
+    "dev": "cd frontend && npm install && npm run dev",
+    "build": "cd frontend && npm run build",
+    "typecheck": "cd frontend && npm run typecheck",
+    "preview": "cd frontend && npm run preview"
+  }
+}

@@ -23,20 +23,26 @@
 
 ## 启动
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+依赖与本地开发环境按下面这一条命令即可装齐：在仓库根目录执行 `npm run dev`
+（需要 Node.js 20 及以上）。首次运行会先把 `frontend/` 的依赖装好再起 dev server，
+之后再次执行依赖已在时直接启动，不会重复安装。也可以用 `make dev`，两者等价。
 
 前端默认监听 `http://127.0.0.1:5173/`，dev server 不会自动打开浏览器，需要自己访问。
+
+只想安装依赖、不启动服务：
+
+```bash
+npm run install:web
+```
 
 生产构建：
 
 ```bash
-cd frontend
 npm run build
 ```
+
+> `package.json` 里的依赖版本如果填成无效值（不存在的版本号或非法标签），`npm install`
+> 会直接失败退出，装不出半套依赖；请按报错修正版本号后重跑。
 
 ## 业务模块
 
@@ -68,4 +74,9 @@ npm run build
 - 字段、状态、动作与流转目标集中在 `frontend/src/data/modules.ts`；示例数据在
   `frontend/src/data/seed.ts`。
 - 状态流转只允许在 `local-service.ts` 里改，页面组件不做业务判断。
-- 想回到初始数据：清掉浏览器里 `district-heating:entries` 这一项，或调用 `resetModule(模块)`。
+- 想回到初始数据：在循环泵运维页点「复位示例数据」，或调用 `resetModule(模块)`。
+  复位会用示例数据按原顺序整体替换该模块，并一并清掉该模块的本地保养提醒
+  （`district-heating:maintenance-reminders`），重复复位结果一致、不会追加重复记录。
+- 循环泵「待保养提醒」只有一个口径：从 `district-heating:entries` 里状态为「待保养」
+  的循环泵派生，侧边栏徽标与循环泵页提醒区都读 `listMaintenanceReminders()`；
+  「已停用」的泵不会产生提醒。登记循环泵按「泵编号」去重，重复提交会被挡回。

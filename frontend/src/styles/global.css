@@ -11,8 +11,15 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .app-side { width: 220px; background: #101828; color: #e5e7eb; padding: 16px 12px; }
 .app-title { font-size: 16px; margin: 0 0 16px; }
 .nav-list { display: flex; flex-direction: column; gap: 4px; }
-.nav-item { color: #cbd5e1; text-decoration: none; padding: 6px 8px; border-radius: 6px; font-size: 13px; }
+.nav-item { color: #cbd5e1; text-decoration: none; padding: 6px 8px; border-radius: 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
 .nav-item.router-link-active { background: #1f6feb; color: #fff; }
+.nav-badge { background: #d92d20; color: #fff; border-radius: 999px; font-size: 11px; line-height: 1; min-width: 18px; padding: 3px 5px; text-align: center; }
+.side-reminders { margin-top: 16px; padding-top: 12px; border-top: 1px solid #27364a; }
+.side-reminders-title { font-size: 12px; color: #94a3b8; margin: 0 0 8px; font-weight: 600; }
+.side-reminders-empty { font-size: 12px; color: #64748b; margin: 0; }
+.side-reminders-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.side-reminders-list li { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #e2e8f0; background: #1c2940; border-radius: 6px; padding: 4px 8px; }
+.side-reminders-station { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
 .app-main { flex: 1; padding: 16px 20px; }
 .app-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; margin: 12px 0; }
@@ -35,3 +42,17 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .error-text { color: #b42318; }
 .status-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
 .legend-item { background: #eef2f7; border-radius: 999px; padding: 2px 10px; }
+.reminder-panel { background: #fff; border: 1px solid var(--border); border-left: 3px solid #d92d20; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.reminder-title { margin: 0 0 8px; font-size: 14px; }
+.reminder-empty { margin: 0; font-size: 12px; color: var(--muted); }
+.reminder-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.reminder-list li { display: flex; gap: 16px; font-size: 13px; }
+.reminder-muted { color: var(--muted); }
+.modal-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.modal-card { background: #fff; border-radius: 10px; padding: 18px 20px; width: 480px; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px); overflow: auto; }
+.modal-title { margin: 0 0 12px; font-size: 16px; }
+.modal-field { display: block; margin-bottom: 10px; }
+.modal-field span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.modal-field em { color: #d92d20; font-style: normal; margin-left: 2px; }
+.modal-field input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }

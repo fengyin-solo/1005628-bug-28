@@ -1,6 +1,24 @@
 import { MODULE_BY_KEY } from '@/data/modules'
-import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
-import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
+import {
+  allRows,
+  appendRow,
+  findRowByField,
+  listReminders,
+  listRows,
+  nextRowId,
+  resetRows,
+  saveReminders,
+  saveRows,
+} from '@/data/local-store'
+import type {
+  ActionResult,
+  CreateResult,
+  EntryRow,
+  MaintenanceReminder,
+  ModuleMeta,
+  OverviewResult,
+  PageResult,
+} from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
 const NEGATIVE_ACTIONS = ['撤销', '作废', '拒绝', '驳回', '停用', '忽略', '下线', '回滚']
@@ -53,12 +71,92 @@ export function runAction(key: string, id: number, action: string): ActionResult
   const next = [...rows]
   next[index] = updated
   saveRows(key, next)
+  if (key === 'circpump') {
+    syncMaintenanceReminders()
+  }
   return { ok: true, message: `${meta.entity}已${action}，当前状态「${target}」` }
+}
+
+export function createEntry(key: string, values: Record<string, string>): CreateResult {
+  const meta = moduleMeta(key)
+  const required = meta.fields.slice(0, 3)
+  const missing = required.filter((field) => !String(values[field] ?? '').trim())
+  if (missing.length > 0) {
+    return { ok: false, message: `请先填写${missing.join('、')}` }
+  }
+  const [codeField] = meta.fields
+  const duplicate = findRowByField(key, codeField, String(values[codeField]))
+  if (duplicate) {
+    // 重复提交直接挡回，台账里只保留第一次登记的那一条。
+    return {
+      ok: false,
+      message: `${meta.entity}「${String(values[codeField]).trim()}」已登记，请勿重复提交`,
+    }
+  }
+  const row: EntryRow = {
+    id: nextRowId(key),
+    status: meta.statuses[0],
+    pending: meta.statuses.length > 1,
+    abnormal: false,
+  }
+  for (const field of meta.fields) {
+    row[field] = String(values[field] ?? '').trim()
+  }
+  appendRow(key, row)
+  if (key === 'circpump') {
+    syncMaintenanceReminders()
+  }
+  return { ok: true, message: `${meta.entity}「${String(values[codeField]).trim()}」登记成功`, item: row }
 }
 
 export function resetModule(key: string): PageResult {
   resetRows(key)
+  if (key === 'circpump') {
+    // 台账复位后按复位后的记录重算提醒：停用设备的待保养提醒不会残留。
+    syncMaintenanceReminders()
+  }
   return listEntries(key)
+}
+
+// 循环泵待保养提醒的唯一口径：只看台账里当前状态为「待保养」的泵。
+// 「已停用」等其他状态一律不出提醒，页面和侧边栏都从这里读，不会各算各的。
+function deriveMaintenanceReminders(): MaintenanceReminder[] {
+  return listRows('circpump')
+    .filter((row) => String(row.status) === '待保养')
+    .map((row) => ({
+      id: Number(row.id),
+      泵编号: String(row['泵编号'] ?? ''),
+      所属换热站: String(row['所属换热站'] ?? ''),
+      保养周期: String(row['保养周期'] ?? ''),
+      上次保养日: String(row['上次保养日'] ?? ''),
+      status: String(row.status),
+    }))
+}
+
+function remindersEqual(left: MaintenanceReminder[], right: MaintenanceReminder[]): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+// 按台账重算并落一份本地镜像；若旧版本残留了停用设备的提醒，这里顺手纠正。
+export function syncMaintenanceReminders(): MaintenanceReminder[] {
+  const derived = deriveMaintenanceReminders()
+  const stored = listReminders('circpump')
+  if (!remindersEqual(stored, derived)) {
+    saveReminders('circpump', derived)
+  }
+  return derived
+}
+
+// 两处（侧边栏徽标、循环泵页面提醒区）都走这一个读取入口，沿用本地持久化口径。
+export function listMaintenanceReminders(): MaintenanceReminder[] {
+  const stored = listReminders('circpump')
+  const derived = deriveMaintenanceReminders()
+  if (!remindersEqual(stored, derived)) {
+    // 镜像和台账对不上（例如旧数据残留）时以台账为准并纠正镜像，保证两边永远一致。
+    saveReminders('circpump', derived)
+    return derived
+  }
+  return stored
 }
 
 export function exportEntries(key: string): { filename: string; content: string } {
